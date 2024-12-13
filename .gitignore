@@ -1,0 +1,38 @@
+# Exclude build directories
+build/
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+
+# Qt Creator specific
+*.pro.user
+*.qmake.stash
+*.qmake.cache
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# VTK build files
+*.vtk
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+
+# Generated files
+*.moc
+*.rcc
+*.uic
+*.bak
+
+# MacOS specific
+.idea/
+.vscode/
