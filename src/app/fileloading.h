@@ -11,12 +11,22 @@
 #include <vtkJPEGReader.h>
 #include <vtkPNGReader.h>
 #include <vtkDICOMImageReader.h>
+#include <vtkNIFTIImageReader.h>
+#include <vtkStructuredPointsReader.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
-#include <vtkImageMapper.h>
-#include <vtkActor2D.h>
-
+#include <vtkImageSliceMapper.h>
+#include <vtkImageSlice.h>
+#include <vtkInteractorStyleImage.h>
+#include <vtkPointPicker.h>
+#include <vtkCommand.h>
+#include <vtkRendererCollection.h>
+#include <vtkDataSetReader.h>
+#include <zlib.h>
+#include <vtkSliderWidget.h>
+#include <vtkSliderRepresentation2D.h>
+#include <vtkCallbackCommand.h>
 
 class FileLoading : public QObject {
     Q_OBJECT
@@ -29,8 +39,11 @@ private:
     vtkSmartPointer<vtkImageData> loadJPEG(const QString &filePath);
     vtkSmartPointer<vtkImageData> loadPNG(const QString &filePath);
     vtkSmartPointer<vtkImageData> loadDICOM(const QString &filePath);
+    vtkSmartPointer<vtkImageData> loadNIFTI(const QString &filePath);
+    vtkSmartPointer<vtkImageData> loadVTK(const QString &filePath);
+    bool decompressGZ(const std::string& gzFilePath, const std::string& outputFilePath);
 
-    void visualizeImage(vtkSmartPointer<vtkImageData> imageData);
+    void visualizeSlicesWithSlider(vtkSmartPointer<vtkImageData> imageData);
 };
 
 #endif // FILELOADING_H

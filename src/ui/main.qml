@@ -38,68 +38,89 @@ ApplicationWindow {
             border.width: 2
             radius: 10
 
-            Column {
-                spacing: 20
-                padding: 20
-                anchors.fill: parent
-
-                // Load Files Button
-                Button {
-                    text: "Load Files"
-                    font.pixelSize: 16
-                    background: Rectangle {
+            ScrollView {
+                width: parent.width
+                height: parent.height
+                clip: true
+                ScrollBar.vertical: ScrollBar {
+                    width: 16
+                    policy: ScrollBar.AlwaysOn
+                    contentItem: Rectangle {
+                        width: 16
+                        radius: 8
                         color: "#3498db"
-                        radius: 5
                     }
-                    contentItem: Text {
+                    background: Rectangle {
+                        width: 16
+                        color: "#bdc3c7"
+                    }
+                    hoverEnabled: true
+                    active: true
+                }
+
+                Column {
+                    spacing: 20
+                    padding: 20
+                    anchors.fill: parent
+
+                    // Load Files Button
+                    Button {
                         text: "Load Files"
                         font.pixelSize: 16
-                        color: "white"
-                        anchors.centerIn: parent
+                        background: Rectangle {
+                            color: "#3498db"
+                            radius: 5
+                        }
+                        contentItem: Text {
+                            text: "Load Files"
+                            font.pixelSize: 16
+                            color: "white"
+                            anchors.centerIn: parent
+                        }
+                        onClicked: fileDialog.open()
                     }
-                    onClicked: fileDialog.open()
-                }
 
-                // Smoothing Checkbox
-                CheckBox {
-                    id: smoothingCheck
-                    text: "Enable Smoothing"
-                    font.pixelSize: 16
-                }
-
-                // Threshold Slider
-                Column {
-                    spacing: 10
-                    Text {
-                        text: "Threshold: " + thresholdSlider.value
+                    // Smoothing Checkbox
+                    CheckBox {
+                        id: smoothingCheck
+                        text: "Enable Smoothing"
                         font.pixelSize: 16
-                        color: "#2c3e50"
                     }
-                    Slider {
-                        id: thresholdSlider
-                        from: 0
-                        to: 100
-                        value: 50
-                        width: 300
-                        onValueChanged: console.log("Slider Value:", value)
-                    }
-                }
 
-                // Start Processing Button
-                Button {
-                    text: "Start Processing"
-                    font.pixelSize: 16
-                    background: Rectangle {
-                        color: "#2ecc71"
-                        radius: 5
+                    // Threshold Slider
+                    Column {
+                        spacing: 10
+                        Text {
+                            text: "Threshold: " + thresholdSlider.value
+                            font.pixelSize: 16
+                            color: "#2c3e50"
+                        }
+                        Slider {
+                            id: thresholdSlider
+                            from: 0
+                            to: 100
+                            value: 50
+                            width: 300
+                            onValueChanged: console.log("Slider Value:", value)
+                        }
                     }
-                    contentItem: Text {
+
+                    // Start Processing Button
+                    Button {
                         text: "Start Processing"
                         font.pixelSize: 16
-                        color: "white"
-                        anchors.centerIn: parent
+                        background: Rectangle {
+                            color: "#2ecc71"
+                            radius: 5
+                        }
+                        contentItem: Text {
+                            text: "Start Processing"
+                            font.pixelSize: 16
+                            color: "white"
+                            anchors.centerIn: parent
+                        }
+                        onClicked: console.log("Processing started")
                     }
-                    onClicked: console.log("Processing started")
                 }
             }
         }

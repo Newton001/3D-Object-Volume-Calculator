@@ -27,6 +27,9 @@ find_package(VTK REQUIRED COMPONENTS
   RenderingGL2PSOpenGL2
   RenderingOpenGL2
   IOImage
+  IOLegacy
+  InteractionStyle
+  InteractionWidgets
 )
 
 if (NOT VTK_FOUND)
