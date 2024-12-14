@@ -63,16 +63,16 @@ ApplicationWindow {
                     padding: 20
                     anchors.fill: parent
 
-                    // Load Files Button
+                    // Load Volume File Button
                     Button {
-                        text: "Load Files"
+                        text: "Load Volume File"
                         font.pixelSize: 16
                         background: Rectangle {
                             color: "#3498db"
                             radius: 5
                         }
                         contentItem: Text {
-                            text: "Load Files"
+                            text: "Load Volume File"
                             font.pixelSize: 16
                             color: "white"
                             anchors.centerIn: parent
@@ -80,59 +80,34 @@ ApplicationWindow {
                         onClicked: fileDialog.open()
                     }
 
-                    // Smoothing Checkbox
-                    CheckBox {
-                        id: smoothingCheck
-                        text: "Enable Smoothing"
-                        font.pixelSize: 16
-                    }
-
-                    // Threshold Slider
-                    Column {
-                        spacing: 10
-                        Text {
-                            text: "Threshold: " + thresholdSlider.value
-                            font.pixelSize: 16
-                            color: "#2c3e50"
-                        }
-                        Slider {
-                            id: thresholdSlider
-                            from: 0
-                            to: 100
-                            value: 50
-                            width: 300
-                            onValueChanged: console.log("Slider Value:", value)
-                        }
-                    }
-
-                    // Start Processing Button
+                    // Show VTK Window Button
                     Button {
-                        text: "Start Processing"
+                        text: "Show VTK Window"
                         font.pixelSize: 16
                         background: Rectangle {
                             color: "#2ecc71"
                             radius: 5
                         }
                         contentItem: Text {
-                            text: "Start Processing"
+                            text: "Show VTK Window"
                             font.pixelSize: 16
                             color: "white"
                             anchors.centerIn: parent
                         }
-                        onClicked: console.log("Processing started")
+                        onClicked: vtkWindow.showWindow()
                     }
                 }
             }
         }
 
-        // Right Panel (Visualization)
+        // Right Panel (Placeholder)
         Rectangle {
             color: "white"
             border.color: "#bdc3c7"
             border.width: 2
             radius: 10
             Text {
-                text: "3D Model Viewer (Placeholder)"
+                text: "3D Model Viewer (External Window)"
                 anchors.centerIn: parent
                 font.pixelSize: 20
                 color: "#7f8c8d"
@@ -140,20 +115,16 @@ ApplicationWindow {
         }
     }
 
-    // File Dialog for File Loading
+    // File Dialog for Selecting a Volume File
     FileDialog {
         id: fileDialog
-        title: "Select Files"
+        title: "Select Volume File"
         folder: shortcuts.home
-        nameFilters: ["Images (*.png *.jpg *.jpeg *.dcm)", "All Files (*)"]
+        nameFilters: ["NIfTI Files (*.nii *.nii.gz)", "VTK Files (*.vtk)", "All Files (*)"]
         onAccepted: {
-            console.log("Selected file(s):", fileDialog.fileUrls);
-
-            // Convert fileUrls to an array of strings
-            const urls = fileDialog.fileUrls.map(url => url.toString());
-            console.log("Converted fileUrls to strings:", urls);
-
-            mainWindow.loadFiles(urls); // Pass as an array of strings
+            console.log("Selected file:", fileDialog.fileUrl);
+            statusText.text = "Loading file: " + fileDialog.fileUrl;
+            vtkWindow.loadFile(fileDialog.fileUrl.toString().substring(8)); // Remove "file://"
         }
     }
 

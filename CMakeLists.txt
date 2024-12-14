@@ -30,11 +30,14 @@ find_package(VTK REQUIRED COMPONENTS
   IOLegacy
   InteractionStyle
   InteractionWidgets
+  RenderingVolumeOpenGL2
+  ImagingStatistics
 )
 
 if (NOT VTK_FOUND)
   message(FATAL_ERROR "Unable to find the VTK build folder.")
 endif()
+
 
 # Project sources
 set(PROJECT_SOURCES
@@ -42,6 +45,8 @@ set(PROJECT_SOURCES
     src/ui/qml.qrc
     src/app/fileloading.h
     src/app/fileloading.cpp
+    src/app/vtkwindow.h
+    src/app/vtkwindow.cpp
 )
 
 # Enable response file for Ninja builds
@@ -65,7 +70,7 @@ else()
     endif()
 endif()
 
-# Link Qt and VTK libraries
+# Link Qt, VTK, and ITK libraries
 target_link_libraries(3D_Object_Volume_Calculator
   PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
@@ -73,6 +78,7 @@ target_link_libraries(3D_Object_Volume_Calculator
     Qt${QT_VERSION_MAJOR}::Qml
     Qt${QT_VERSION_MAJOR}::Quick
     ${VTK_LIBRARIES}
+    ${ITK_LIBRARIES}
 )
 
 # Set application properties

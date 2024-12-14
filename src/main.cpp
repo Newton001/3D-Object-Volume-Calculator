@@ -1,7 +1,8 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include "app/fileloading.h" // Include the FileLoading header
+#include "app/fileloading.h"   // File loader for managing file inputs
+#include "app/vtkwindow.h"         // VTK window for rendering and computation
 
 int main(int argc, char *argv[]) {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -19,6 +20,10 @@ int main(int argc, char *argv[]) {
     // Create an instance of FileLoading and expose it to QML
     FileLoading fileLoader;
     engine.rootContext()->setContextProperty("mainWindow", &fileLoader);
+
+    // Create an instance of VTKWindow and expose it to QML
+    VTKWindow vtkWindow;
+    engine.rootContext()->setContextProperty("vtkWindow", &vtkWindow);
 
     // Load the main QML file
     const QUrl url(QStringLiteral("qrc:/main.qml"));
