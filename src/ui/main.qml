@@ -80,6 +80,65 @@ ApplicationWindow {
                         onClicked: fileDialog.open()
                     }
 
+                    // Pre-processing Options
+                    GroupBox {
+                        title: "Pre-processing"
+                        font.pixelSize: 16
+                        contentItem: Column {
+                            spacing: 10
+                            padding: 10
+
+                            CheckBox {
+                                text: "Apply Thresholding"
+                                onCheckedChanged: thresholdingEnabled = checked
+                            }
+
+                            CheckBox {
+                                text: "Apply Smoothing"
+                                onCheckedChanged: smoothingEnabled = checked
+                            }
+                        }
+                    }
+
+                    // Volume Calculation Button
+                    Button {
+                        text: "Calculate Volume"
+                        font.pixelSize: 16
+                        background: Rectangle {
+                            color: "#e74c3c"
+                            radius: 5
+                        }
+                        contentItem: Text {
+                            text: "Calculate Volume"
+                            font.pixelSize: 16
+                            color: "white"
+                            anchors.centerIn: parent
+                        }
+                        onClicked: calculateVolume()
+                    }
+
+                    // Export Options
+                    GroupBox {
+                        title: "Export"
+                        font.pixelSize: 16
+                        contentItem: Column {
+                            spacing: 10
+                            padding: 10
+
+                            Button {
+                                text: "Export Model"
+                                font.pixelSize: 16
+                                onClicked: exportModel()
+                            }
+
+                            Button {
+                                text: "Export Volume Data"
+                                font.pixelSize: 16
+                                onClicked: exportVolumeData()
+                            }
+                        }
+                    }
+
                     // Show VTK Window Button
                     Button {
                         text: "Show VTK Window"
@@ -100,17 +159,48 @@ ApplicationWindow {
             }
         }
 
-        // Right Panel (Placeholder)
+        // Right Panel (3D Viewer and Status)
         Rectangle {
             color: "white"
             border.color: "#bdc3c7"
             border.width: 2
             radius: 10
-            Text {
-                text: "3D Model Viewer (External Window)"
+
+            Column {
+                spacing: 20
                 anchors.centerIn: parent
-                font.pixelSize: 20
-                color: "#7f8c8d"
+
+                Text {
+                    text: "3D Model Viewer"
+                    font.pixelSize: 20
+                    color: "#7f8c8d"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+
+                // 3D Model Visualization Placeholder
+                Rectangle {
+                    width: 600
+                    height: 400
+                    color: "#ecf0f1"
+                    border.color: "#bdc3c7"
+                    border.width: 1
+                    radius: 10
+                    Text {
+                        text: "3D Model Visualization Area"
+                        anchors.centerIn: parent
+                        font.pixelSize: 18
+                        color: "#7f8c8d"
+                    }
+                }
+
+                // Volume Result Display
+                Text {
+                    id: volumeText
+                    text: "Volume: N/A"
+                    font.pixelSize: 18
+                    color: "#2c3e50"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
             }
         }
     }
@@ -146,5 +236,38 @@ ApplicationWindow {
             font.pixelSize: 16
             color: "#2c3e50"
         }
+    }
+
+    // Helper Variables for Pre-processing Options
+    property bool thresholdingEnabled: false
+    property bool smoothingEnabled: false
+
+    // Functions for Volume Calculation, Export, and Error Handling
+    function calculateVolume() {
+        if (!vtkWindow.isFileLoaded()) {
+            statusText.text = "Error: No file loaded!";
+            return;
+        }
+        statusText.text = "Calculating Volume...";
+        volumeText.text = "Volume: Calculating...";
+        // Trigger the volume calculation (this would depend on how your volume is calculated in the VTK application)
+    }
+
+    function exportModel() {
+        if (!vtkWindow.isFileLoaded()) {
+            statusText.text = "Error: No file loaded!";
+            return;
+        }
+        // Add export logic here (e.g., export 3D model to file)
+        statusText.text = "Exporting Model...";
+    }
+
+    function exportVolumeData() {
+        if (!vtkWindow.isFileLoaded()) {
+            statusText.text = "Error: No file loaded!";
+            return;
+        }
+        // Add export logic for volume data here (e.g., export volume as a .txt or .csv file)
+        statusText.text = "Exporting Volume Data...";
     }
 }
