@@ -15,6 +15,9 @@ int main(int argc, char *argv[]) {
     app.setOrganizationName("MyOrganization");
     app.setOrganizationDomain("myorganization.com");
 
+    // Register the VTKWindow class with QML under the "VTK" module
+    qmlRegisterType<VTKWindow>("VTK", 1, 0, "VTKWindow");
+
     QQmlApplicationEngine engine;
 
     // Create an instance of FileLoading and expose it to QML

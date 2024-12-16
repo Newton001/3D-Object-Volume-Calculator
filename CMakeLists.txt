@@ -32,6 +32,11 @@ find_package(VTK REQUIRED COMPONENTS
   InteractionWidgets
   RenderingVolumeOpenGL2
   ImagingStatistics
+  ImagingCore
+  ImagingGeneral
+  FiltersCore
+  ImagingStencil
+  ImagingMorphological
 )
 
 if (NOT VTK_FOUND)
