@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find Qt
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Quick Qml Gui)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Quick Qml Gui)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Quick Qml Gui Widgets Concurrent)
 
 # Find VTK
 find_package(VTK REQUIRED COMPONENTS
@@ -82,6 +82,8 @@ target_link_libraries(3D_Object_Volume_Calculator
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Qml
     Qt${QT_VERSION_MAJOR}::Quick
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Concurrent
     ${VTK_LIBRARIES}
     ${ITK_LIBRARIES}
 )

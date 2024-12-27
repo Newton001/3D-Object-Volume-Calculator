@@ -9,18 +9,26 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkVolume.h>
 #include <vtkVolumeMapper.h>
+#include <vtkImageData.h>
+#include <QVector>
+#include <vector>
 
 class VTKWindow : public QObject {
     Q_OBJECT
 
 public:
-    explicit VTKWindow(QObject *parent = nullptr);
-    ~VTKWindow();
+    static VTKWindow* getInstance(QObject *parent = nullptr) {
+        static VTKWindow instance(parent);
+        return &instance;
+    }
+
+    // Delete copy constructor and assignment operator to enforce single instance
+    VTKWindow(const VTKWindow&) = delete;
+    VTKWindow& operator=(const VTKWindow&) = delete;
 
     // Methods exposed to QML
     Q_INVOKABLE void showWindow();
     Q_INVOKABLE void loadFile(const QString &filePath);
-    Q_INVOKABLE void loadFile2(const QString &filePath);
     Q_INVOKABLE void updateSettings(double lowerThreshold, double upperThreshold, int kernelSize, double smoothingStdDev);
 
     // Properties exposed to QML
@@ -28,7 +36,7 @@ public:
     Q_PROPERTY(QString width READ width NOTIFY dimensionsChanged)
     Q_PROPERTY(QString height READ height NOTIFY dimensionsChanged)
     Q_PROPERTY(QString depth READ depth NOTIFY dimensionsChanged)
-    Q_PROPERTY(QString volumer READ volume NOTIFY volumeChanged)
+    Q_PROPERTY(QString volume READ volume NOTIFY volumeChanged)
     Q_PROPERTY(bool modelLoaded READ modelLoaded NOTIFY modelLoadedChanged)
     Q_PROPERTY(QString surfaceArea READ surfaceArea NOTIFY dimensionsChanged)
 
@@ -37,11 +45,12 @@ public:
     QString width() const { return m_width; }
     QString height() const { return m_height; }
     QString depth() const { return m_depth; }
-    QString volumer() const { return m_volume; }
+    QString volume() const { return m_volume; }
     QString surfaceArea() const { return m_surfaceArea; }
     double zoomLevel() const { return m_zoomLevel; }
     QString setRenderingMode(const QString &mode);
     bool modelLoaded() const { return m_modelLoaded; }
+    vtkSmartPointer<vtkImageData> getImageData() const;
 
 signals:
     void fileNameChanged();
@@ -51,8 +60,13 @@ signals:
     void renderingModeChanged();
     void surfaceAreaChanged();
     void zoomLevelChanged();
+    void intensityDataChanged(const QVector<QPair<int, double>>& data);
+    void voxelDataUpdated(QVector<int> sliceIndices, QVector<int> voxelCounts);
 
 private:
+    explicit VTKWindow(QObject *parent = nullptr);
+    ~VTKWindow();
+
     // Member variables
     QString filePath;
     QString m_fileName;
@@ -60,6 +74,8 @@ private:
     double m_zoomLevel = 0.0;
     QString m_renderingMode;
     bool m_modelLoaded = false;
+
+    vtkSmartPointer<vtkImageData> m_imageData;
 
     void updateZoomLevel();
 
@@ -72,7 +88,7 @@ private:
     vtkSmartPointer<vtkActor> surfaceActor;
     vtkSmartPointer<vtkRenderWindow> renderWindow;
     vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor;
-    vtkSmartPointer<vtkVolume> volume;
+    vtkSmartPointer<vtkVolume> m_volume_d;
 
     void processImage();
 };

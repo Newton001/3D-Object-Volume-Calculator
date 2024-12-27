@@ -29,6 +29,10 @@
 #include <vtkMassProperties.h>
 #include <vtkCamera.h>
 #include <vtkCallbackCommand.h>
+#include <QtConcurrent>
+#include <QFutureWatcher>
+#include <mutex>
+std::mutex dataMutex;
 
 VTKWindow::VTKWindow(QObject *parent) : QObject(parent) {
     // Initialize VTK components
@@ -57,151 +61,11 @@ void VTKWindow::showWindow() {
     renderWindowInteractor->Start();
 }
 
-void VTKWindow::loadFile2(const QString &filePath) {
-    vtkSmartPointer<vtkImageData> imageData;
-
-    if (filePath.endsWith(".nii") || filePath.endsWith(".nii.gz")) {
-        auto niftiReader = vtkSmartPointer<vtkNIFTIImageReader>::New();
-        niftiReader->SetFileName(filePath.toStdString().c_str());
-        niftiReader->Update();
-        imageData = niftiReader->GetOutput();
-    } else if (filePath.endsWith(".vtk")) {
-        auto vtkReader = vtkSmartPointer<vtkStructuredPointsReader>::New();
-        vtkReader->SetFileName(filePath.toStdString().c_str());
-        vtkReader->Update();
-        imageData = vtkSmartPointer<vtkImageData>::Take(vtkImageData::SafeDownCast(vtkReader->GetOutput()));
-    } else {
-        qWarning() << "Unsupported file format: " << filePath;
-        return;
-    }
-
-    if (!imageData) {
-        qWarning() << "Failed to load image data. Check the file format and contents.";
-        return;
-    }
-
-    auto volumeMapper = vtkSmartPointer<vtkSmartVolumeMapper>::New();
-    volumeMapper->SetInputData(imageData);
-
-    auto colorFunction = vtkSmartPointer<vtkColorTransferFunction>::New();
-    colorFunction->AddRGBPoint(-1000, 0.0, 0.0, 0.0);
-    colorFunction->AddRGBPoint(0, 1.0, 1.0, 1.0);
-
-    auto opacityFunction = vtkSmartPointer<vtkPiecewiseFunction>::New();
-    opacityFunction->AddPoint(-1000, 0.0);
-    opacityFunction->AddPoint(0, 1.0);
-
-    auto volumeProperty = vtkSmartPointer<vtkVolumeProperty>::New();
-    volumeProperty->SetColor(colorFunction);
-    volumeProperty->SetScalarOpacity(opacityFunction);
-    volumeProperty->ShadeOn();
-
-    volume = vtkSmartPointer<vtkVolume>::New();
-    volume->SetMapper(volumeMapper);
-    volume->SetProperty(volumeProperty);
-
-    renderer->AddVolume(volume);
-    renderer->ResetCamera();
-    renderWindow->Render();
-
-    double lowerThreshold = 50;
-    double upperThreshold = 800;
-
-    auto threshold = vtkSmartPointer<vtkImageThreshold>::New();
-    threshold->SetInputData(imageData);
-    threshold->ThresholdBetween(lowerThreshold, upperThreshold);
-    threshold->ReplaceInOn();
-    threshold->SetInValue(255); // Set white regions to 255
-    threshold->ReplaceOutOn();
-    threshold->SetOutValue(0);  // Set everything else to 0 (black)
-    threshold->Update();
-
-    auto segmentedData = threshold->GetOutput();
-
-    auto sobelFilter = vtkSmartPointer<vtkImageSobel3D>::New();
-    sobelFilter->SetInputData(segmentedData);
-    sobelFilter->Update();
-
-    auto edgeImage = sobelFilter->GetOutput();
-
-    auto castFilter = vtkSmartPointer<vtkImageCast>::New();
-    castFilter->SetInputData(edgeImage);
-    castFilter->SetOutputScalarTypeToUnsignedChar();
-    castFilter->Update();
-
-    auto imageStencil = vtkSmartPointer<vtkImageToImageStencil>::New();
-    imageStencil->SetInputData(castFilter->GetOutput());
-    imageStencil->ThresholdByUpper(255);
-    imageStencil->Update();
-
-    auto imageMask = vtkSmartPointer<vtkImageStencil>::New();
-    imageMask->SetInputData(segmentedData);
-    imageMask->SetStencilData(imageStencil->GetOutput());
-    imageMask->ReverseStencilOff();
-    imageMask->SetBackgroundValue(0);
-    imageMask->Update();
-
-    // Masking Step: Already performed in your code
-    auto maskedData = imageMask->GetOutput();
-
-    // Step 1: Fill Gaps Using Morphological Closing
-    auto dilateErode = vtkSmartPointer<vtkImageDilateErode3D>::New();
-    dilateErode->SetInputData(maskedData);
-    dilateErode->SetDilateValue(1);  // Expand white regions (fill gaps)
-    dilateErode->SetErodeValue(0);   // Shrink black regions
-    dilateErode->SetKernelSize(5, 5, 5);  // Larger kernel for more filling
-    dilateErode->Update();
-
-    // Step 2: Smooth the Result to Remove Noise
-    auto gaussianSmooth = vtkSmartPointer<vtkImageGaussianSmooth>::New();
-    gaussianSmooth->SetInputData(dilateErode->GetOutput());
-    gaussianSmooth->SetStandardDeviations(1.0, 1.0, 1.0);  // Smoothing strength
-    gaussianSmooth->SetRadiusFactors(2.0, 2.0, 2.0);       // Radius of smoothing
-    gaussianSmooth->Update();
-
-
-    // Step 3: Extract Solid Surface Using Marching Cubes
-    auto marchingCubes = vtkSmartPointer<vtkMarchingCubes>::New();
-    marchingCubes->SetInputData(gaussianSmooth->GetOutput());
-    marchingCubes->SetValue(0, 1.0);  // Iso-value for the surface extraction
-    marchingCubes->Update();
-
-    // Step 4: Map the Extracted Surface to PolyData
-    auto surfaceMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-    surfaceMapper->SetInputConnection(marchingCubes->GetOutputPort());
-    surfaceMapper->ScalarVisibilityOff();  // Hide scalar colors, ensure solid color
-
-    // Step 5: Surface Actor Configuration
-    auto surfaceActor = vtkSmartPointer<vtkActor>::New();
-    surfaceActor->SetMapper(surfaceMapper);
-    surfaceActor->GetProperty()->SetColor(1.0, 1.0, 1.0);  // Solid white surface
-    surfaceActor->GetProperty()->SetOpacity(1.0);          // Fully opaque
-
-    // Step 6: Set Up a New Renderer for Output
-    auto solidSurfaceRenderer = vtkSmartPointer<vtkRenderer>::New();
-    solidSurfaceRenderer->SetBackground(0.0, 0.0, 0.0);  // Black background
-
-    auto solidSurfaceRenderWindow = vtkSmartPointer<vtkRenderWindow>::New();
-    solidSurfaceRenderWindow->AddRenderer(solidSurfaceRenderer);
-
-    auto solidSurfaceInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
-    solidSurfaceInteractor->SetRenderWindow(solidSurfaceRenderWindow);
-
-    // Step 7: Add the Solid Surface Actor to the Renderer
-    solidSurfaceRenderer->AddActor(surfaceActor);
-    solidSurfaceRenderer->ResetCamera();
-
-    // Step 8: Render the Final Output
-    solidSurfaceRenderWindow->Render();
-    qDebug() << "Solid surface visualization complete.";
-    solidSurfaceInteractor->Start();
-}
-
-
 
 void VTKWindow::loadFile(const QString &filePath) {
     this->filePath = filePath;
     processImage();
+
 }
 
 void VTKWindow::updateSettings(double lowerThreshold, double upperThreshold, int kernelSize, double smoothingStdDev) {
@@ -212,6 +76,7 @@ void VTKWindow::updateSettings(double lowerThreshold, double upperThreshold, int
     processImage();
 }
 
+
 void VTKWindow::processImage() {
     vtkSmartPointer<vtkImageData> imageData;
 
@@ -220,6 +85,7 @@ void VTKWindow::processImage() {
         niftiReader->SetFileName(filePath.toStdString().c_str());
         niftiReader->Update();
         imageData = niftiReader->GetOutput();
+        this->m_imageData = imageData;
     } else if (filePath.endsWith(".vtk")) {
         auto vtkReader = vtkSmartPointer<vtkStructuredPointsReader>::New();
         vtkReader->SetFileName(filePath.toStdString().c_str());
@@ -234,6 +100,8 @@ void VTKWindow::processImage() {
         qWarning() << "Failed to load image data. Check the file format and contents.";
         return;
     }
+
+    this->m_imageData = imageData;
 
     /// Get Image Dimensions
     // Get image dimensions
@@ -329,7 +197,6 @@ void VTKWindow::processImage() {
     m_surfaceArea = QString::number(surfaceArea, 'f', 2);  // Store as a string
     emit surfaceAreaChanged();
 
-
     emit volumeChanged();
     m_modelLoaded = true;
     emit dimensionsChanged();
@@ -348,10 +215,16 @@ void VTKWindow::processImage() {
     renderWindowInteractor->Start();
 }
 
+
 void VTKWindow::updateZoomLevel() {
     auto camera = renderer->GetActiveCamera();
     m_zoomLevel = camera->GetDistance();  // Perspective mode
     emit zoomLevelChanged();
 }
 
+vtkSmartPointer<vtkImageData> VTKWindow::getImageData() const {
+    qWarning() << "Data Reading ..";
+    std::lock_guard<std::mutex> lock(dataMutex);
+    return m_imageData;
+}
 

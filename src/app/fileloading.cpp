@@ -1,196 +1,122 @@
 #include "FileLoading.h"
+#include <thread>
+#include "vtkwindow.h"
+#include <vector>
 
 
-FileLoading::FileLoading(QObject *parent) : QObject(parent) {}
+FileLoading::FileLoading(QObject *parent) {}
 
-void FileLoading::loadFiles(const QStringList &fileUrls) {
-    qDebug() << "Loading files:" << fileUrls;
+// Global vector to store voxel counts
+std::vector<size_t> voxelCounts;
 
-    for (const QString &urlString : fileUrls) {
-        QUrl fileUrl(urlString);
-        if (!fileUrl.isValid()) {
-            qWarning() << "Invalid file URL:" << fileUrl;
-            continue;
-        }
-
-        QString localPath = fileUrl.toLocalFile();
-        if (localPath.isEmpty()) {
-            qWarning() << "Empty file path for URL:" << fileUrl;
-            continue;
-        }
-
-        qDebug() << "Processing file:" << localPath;
-
-        // Determine file extension
-        QFileInfo fileInfo(localPath);
-        QString fileExtension = fileInfo.suffix().toLower();
-
-        vtkSmartPointer<vtkImageData> imageData;
-
-        // Use appropriate reader based on file extension
-        if (fileExtension == "jpg" || fileExtension == "jpeg") {
-            imageData = loadJPEG(localPath);
-        } else if (fileExtension == "png") {
-            imageData = loadPNG(localPath);
-        } else if (fileExtension == "dcm") {
-            imageData = loadDICOM(localPath);
-        } else if (fileExtension == "nii") {
-            imageData = loadNIFTI(localPath);
-        } else if (fileExtension == "gz" && localPath.endsWith(".nii.gz")) {
-            QString decompressedPath = localPath.left(localPath.size() - 3); // Remove '.gz'
-            if (decompressGZ(localPath.toStdString(), decompressedPath.toStdString())) {
-                imageData = loadNIFTI(decompressedPath);
-            } else {
-                qWarning() << "Failed to decompress file:" << localPath;
-                continue;
-            }
-        } else if (fileExtension == "vtk") {
-            imageData = loadVTK(localPath);
-        } else {
-            qWarning() << "Unsupported file format:" << fileExtension;
-            continue;
-        }
-
-        // Check if the image data was successfully loaded
-        if (imageData) {
-            qDebug() << "Successfully loaded image:" << localPath;
-            visualizeSlicesWithSlider(imageData); // Call visualization method
-        } else {
-            qWarning() << "Failed to load image:" << localPath;
-        }
+// Helper function to emit voxel data signal
+void emitVoxelData(VTKWindow* vtkWindow) {
+    QVector<int> slices, counts;
+    for (size_t i = 0; i < voxelCounts.size(); ++i) {
+        slices.append(static_cast<size_t>(i));
+        counts.append(voxelCounts[i]);
     }
+    emit vtkWindow->voxelDataUpdated(slices, counts);
 }
 
-vtkSmartPointer<vtkImageData> FileLoading::loadJPEG(const QString &filePath) {
-    qDebug() << "Loading JPEG file:" << filePath;
-    auto reader = vtkSmartPointer<vtkJPEGReader>::New();
-    reader->SetFileName(filePath.toStdString().c_str());
-    reader->Update();
-    return reader->GetOutput();
-}
 
-vtkSmartPointer<vtkImageData> FileLoading::loadPNG(const QString &filePath) {
-    qDebug() << "Loading PNG file:" << filePath;
-    auto reader = vtkSmartPointer<vtkPNGReader>::New();
-    reader->SetFileName(filePath.toStdString().c_str());
-    reader->Update();
-    return reader->GetOutput();
-}
+void FileLoading::visualizeSlicesWithSlider() {
+    qWarning() << "Starting ...";
+    VTKWindow *vtkWindow = VTKWindow::getInstance();
+    vtkSmartPointer<vtkImageData> imageData = vtkWindow->getImageData();
 
-vtkSmartPointer<vtkImageData> FileLoading::loadDICOM(const QString &filePath) {
-    qDebug() << "Loading DICOM file:" << filePath;
-    auto reader = vtkSmartPointer<vtkDICOMImageReader>::New();
-    reader->SetFileName(filePath.toStdString().c_str());
-    reader->Update();
-    return reader->GetOutput();
-}
-
-vtkSmartPointer<vtkImageData> FileLoading::loadNIFTI(const QString &filePath) {
-    qDebug() << "Loading NIfTI file:" << filePath;
-    auto reader = vtkSmartPointer<vtkNIFTIImageReader>::New();
-    reader->SetFileName(filePath.toStdString().c_str());
-    reader->Update();
-    return reader->GetOutput();
-}
-
-vtkSmartPointer<vtkImageData> FileLoading::loadVTK(const QString &filePath) {
-    qDebug() << "Loading VTK file:" << filePath;
-    auto reader = vtkSmartPointer<vtkDataSetReader>::New();
-    reader->SetFileName(filePath.toStdString().c_str());
-    reader->Update();
-
-    auto imageData = vtkImageData::SafeDownCast(reader->GetOutput());
-    if (!imageData) {
-        qWarning() << "The VTK file does not contain vtkImageData.";
-        return nullptr;
-    }
-
-    return imageData;
-}
-
-void FileLoading::visualizeSlicesWithSlider(vtkSmartPointer<vtkImageData> imageData) {
     if (!imageData) {
         qWarning() << "No valid image data to visualize.";
         return;
+    } else {
+        qWarning() << "Valid image data to visualize.";
     }
 
-    // Create a slice mapper
-    auto sliceMapper = vtkSmartPointer<vtkImageSliceMapper>::New();
-    sliceMapper->SetInputData(imageData);
-    sliceMapper->SetSliceNumber(0); // Start with the first slice
-    sliceMapper->SetOrientationToZ(); // Slicing along Z-axis
+    // Start a new thread for the 2D slice viewer
+    std::thread([imageData, vtkWindow]() {
+        // Create a slice mapper
+        auto sliceMapper = vtkSmartPointer<vtkImageSliceMapper>::New();
+        sliceMapper->SetInputData(imageData);
+        sliceMapper->SetSliceNumber(0); // Start with the first slice
+        sliceMapper->SetOrientationToZ(); // Slicing along Z-axis
 
-    auto slice = vtkSmartPointer<vtkImageSlice>::New();
-    slice->SetMapper(sliceMapper);
+        auto slice = vtkSmartPointer<vtkImageSlice>::New();
+        slice->SetMapper(sliceMapper);
 
-    // Create a renderer and add the slice
-    auto renderer = vtkSmartPointer<vtkRenderer>::New();
-    renderer->AddViewProp(slice);
-    renderer->ResetCamera();
+        // Create a renderer and add the slice
+        auto renderer = vtkSmartPointer<vtkRenderer>::New();
+        renderer->AddViewProp(slice);
+        renderer->ResetCamera();
 
-    // Create render window and interactor
-    auto renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
-    renderWindow->AddRenderer(renderer);
+        // Create a new render window for this visualization
+        auto renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
+        renderWindow->SetWindowName("2D Slice Viewer");
+        renderWindow->AddRenderer(renderer);
 
-    auto renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
-    auto interactorStyle = vtkSmartPointer<vtkInteractorStyleImage>::New();
-    renderWindowInteractor->SetInteractorStyle(interactorStyle);
-    renderWindowInteractor->SetRenderWindow(renderWindow);
+        // Create render window interactor and set up interactor style
+        auto renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
+        auto interactorStyle = vtkSmartPointer<vtkInteractorStyleImage>::New();
+        renderWindowInteractor->SetInteractorStyle(interactorStyle);
+        renderWindowInteractor->SetRenderWindow(renderWindow);
 
-    // Create a slider representation
-    auto sliderRep = vtkSmartPointer<vtkSliderRepresentation2D>::New();
-    sliderRep->SetMinimumValue(0); // First slice
-    sliderRep->SetMaximumValue(imageData->GetDimensions()[2] - 1); // Last slice
-    sliderRep->SetValue(0); // Initial slice
-    sliderRep->SetTitleText("Slice");
+        // Create a slider representation
+        auto sliderRep = vtkSmartPointer<vtkSliderRepresentation2D>::New();
+        sliderRep->SetMinimumValue(0); // First slice
+        sliderRep->SetMaximumValue(imageData->GetDimensions()[2] - 1); // Last slice
+        sliderRep->SetValue(0); // Initial slice
+        sliderRep->SetTitleText("Slice");
 
-    // Position the slider in the render window
-    sliderRep->GetPoint1Coordinate()->SetCoordinateSystemToNormalizedDisplay();
-    sliderRep->GetPoint1Coordinate()->SetValue(0.1, 0.1); // Bottom-left
-    sliderRep->GetPoint2Coordinate()->SetCoordinateSystemToNormalizedDisplay();
-    sliderRep->GetPoint2Coordinate()->SetValue(0.3, 0.1); // Bottom-right
+        // Position the slider in the render window
+        sliderRep->GetPoint1Coordinate()->SetCoordinateSystemToNormalizedDisplay();
+        sliderRep->GetPoint1Coordinate()->SetValue(0.1, 0.1); // Bottom-left
+        sliderRep->GetPoint2Coordinate()->SetCoordinateSystemToNormalizedDisplay();
+        sliderRep->GetPoint2Coordinate()->SetValue(0.3, 0.1); // Bottom-right
 
-    // Create the slider widget
-    auto sliderWidget = vtkSmartPointer<vtkSliderWidget>::New();
-    sliderWidget->SetInteractor(renderWindowInteractor);
-    sliderWidget->SetRepresentation(sliderRep);
-    sliderWidget->SetAnimationModeToAnimate();
-    sliderWidget->EnabledOn();
+        // Create the slider widget
+        auto sliderWidget = vtkSmartPointer<vtkSliderWidget>::New();
+        sliderWidget->SetInteractor(renderWindowInteractor);
+        sliderWidget->SetRepresentation(sliderRep);
+        sliderWidget->SetAnimationModeToAnimate();
+        sliderWidget->EnabledOn();
 
-    // Callback to update the slice based on slider value
-    auto sliderCallback = vtkSmartPointer<vtkCallbackCommand>::New();
-    sliderCallback->SetCallback([](vtkObject* caller, long unsigned int, void* clientData, void*) {
-        auto sliderWidget = static_cast<vtkSliderWidget*>(caller);
-        double value = static_cast<vtkSliderRepresentation2D*>(sliderWidget->GetRepresentation())->GetValue();
-        auto sliceMapper = static_cast<vtkImageSliceMapper*>(clientData);
-        sliceMapper->SetSliceNumber(static_cast<int>(value));
-    });
-    sliderWidget->AddObserver(vtkCommand::InteractionEvent, sliderCallback);
-    sliderCallback->SetClientData(sliceMapper);
+        // Precompute voxel counts for all slices
+        int dims[3];
+        imageData->GetDimensions(dims);
+        voxelCounts.resize(dims[2], 0);
 
-    // Start rendering
-    renderWindow->Render();
-    renderWindowInteractor->Start();
+        for (int z = 0; z < dims[2]; ++z) {
+            size_t voxelCount = 0;
+            for (size_t y = 0; y < dims[1]; ++y) {
+                for (size_t x = 0; x < dims[0]; ++x) {
+                    double* voxelValue = static_cast<double*>(imageData->GetScalarPointer(x, y, z));
+                    if (voxelValue && *voxelValue > 50.0) { // Example threshold
+                        ++voxelCount;
+                    }
+                }
+            }
+            voxelCounts[z] = voxelCount;
+        }
+
+        // Emit initial data for the entire volume
+        emitVoxelData(vtkWindow);
+
+        // Callback to update the slice number
+        auto sliderCallback = vtkSmartPointer<vtkCallbackCommand>::New();
+        sliderCallback->SetCallback([](vtkObject* caller, long unsigned int, void* clientData, void*) {
+            auto sliderWidget = static_cast<vtkSliderWidget*>(caller);
+            double value = static_cast<vtkSliderRepresentation2D*>(sliderWidget->GetRepresentation())->GetValue();
+            auto sliceMapper = static_cast<vtkImageSliceMapper*>(clientData);
+            sliceMapper->SetSliceNumber(static_cast<int>(value));
+
+            int sliceIndex = static_cast<int>(value);
+            qDebug() << "Slice" << sliceIndex << ": Voxel Count =" << voxelCounts[sliceIndex];
+        });
+        sliderWidget->AddObserver(vtkCommand::InteractionEvent, sliderCallback);
+        sliderCallback->SetClientData(sliceMapper);
+
+        // Show the window and start interaction
+        renderWindow->Render();
+        renderWindowInteractor->Start();
+    }).detach(); // Detach the thread to run independently
 }
 
-bool FileLoading::decompressGZ(const std::string& gzFilePath, const std::string& outputFilePath) {
-    gzFile gzFile = gzopen(gzFilePath.c_str(), "rb");
-    if (!gzFile) return false;
-
-    std::ofstream outputFile(outputFilePath, std::ios::binary);
-    if (!outputFile.is_open()) {
-        gzclose(gzFile);
-        return false;
-    }
-
-    char buffer[4096];
-    int bytesRead;
-    while ((bytesRead = gzread(gzFile, buffer, sizeof(buffer))) > 0) {
-        outputFile.write(buffer, bytesRead);
-    }
-
-    gzclose(gzFile);
-    outputFile.close();
-
-    return true;
-}
